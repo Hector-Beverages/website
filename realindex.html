@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hector Analytics | 3D Spiral Core</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --orange: #F37021;
+            --orange-glow: rgba(243, 112, 33, 0.5);
+            --cyan: #00f0ff;
+            --magenta: #ff003c;
+            --dark: #050505;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body, html {
+            background-color: var(--dark);
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+            -ms-overflow-style: none; scrollbar-width: none;
+            /* Ensure the body actually has height */
+            height: 100%;
+        }
+        ::-webkit-scrollbar { display: none; }
+
+        /* Background grid/scanlines */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: 
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none; z-index: 1;
+        }
+
+        /* Fixed Header */
+        header {
+            position: fixed; top: 0; left: 0; width: 100%;
+            padding: 25px 50px; z-index: 2000;
+            display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.9), transparent);
+            pointer-events: none; 
+        }
+        header img { height: 35px; filter: drop-shadow(0 0 5px var(--cyan)); pointer-events: auto; }
+        .header-title { 
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; letter-spacing: 4px; color: var(--cyan); 
+            text-shadow: 0 0 10px rgba(0,240,255,0.5);
+        }
+
+        /* -------------------------------------------
+           3D CYLINDER / STAIRCASE MECHANICS 
+        ------------------------------------------- */
+        
+        #scroll-proxy {
+            position: absolute; top: 0; left: 0; width: 10px;
+            z-index: 0; pointer-events: none;
+        }
+
+        #viewport {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            perspective: 1200px; 
+            /* Set to auto so our custom JS scroll catcher works */
+            pointer-events: auto; 
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; z-index: 10;
+        }
+
+        #camera-rig {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d;
+            transform: rotateX(-10deg) translateY(50px);
+            pointer-events: none; 
+        }
+
+        #helix-container {
+            position: absolute; top: 50%; left: 50%; width: 0; height: 0;
+            transform-style: preserve-3d; pointer-events: none; 
+        }
+
+        /* The glowing center pole you spiral around */
+        #center-pole {
+            position: absolute; top: -5000px; bottom: -5000px; left: 50%; width: 6px;
+            transform: translateX(-50%);
+            background: linear-gradient(to bottom, var(--cyan), var(--orange), var(--magenta), var(--cyan));
+            background-size: 100% 200%;
+            box-shadow: 0 0 40px var(--cyan), 0 0 15px var(--orange);
+            animation: pulsePole 3s linear infinite;
+        }
+        @keyframes pulsePole { 0% { background-position: 0 0; } 100% { background-position: 0 200%; } }
+
+        /* Holographic rings mapping the cylinder */
+        .pole-ring {
+            position: absolute; top: 50%; left: 50%;
+            border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.1) inset, 0 0 30px rgba(0, 240, 255, 0.1);
+        }
+
+        /* The individual content sections (The Stairs) */
+        .panel {
+            position: absolute; top: 50%; left: 50%; transform-style: preserve-3d;
+            text-align: center; pointer-events: none; 
+            transition: opacity 0.1s linear, filter 0.1s linear;
+        }
+
+        /* -------------------------------------------
+           INTERNAL PANEL STYLES (Cyber Cards) 
+        ------------------------------------------- */
+        h1.hero-title {
+            font-family: 'Orbitron', sans-serif; font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 900; color: transparent; -webkit-text-stroke: 1px var(--cyan);
+            text-shadow: 0 0 20px rgba(0,240,255,0.3); margin-bottom: 20px;
+        }
+        h1.hero-title span { color: #fff; -webkit-text-stroke: 0; text-shadow: 0 0 20px var(--orange-glow); }
+        
+        .section-title {
+            font-family: 'Orbitron', sans-serif; font-size: 2.2rem; color: #fff; margin-bottom: 30px;
+            text-shadow: 2px 2px 0px var(--orange), -2px -2px 0px var(--cyan);
+        }
+
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px; width: 100%; text-align: left;
+        }
+
+        .cyber-card {
+            background: rgba(10, 15, 20, 0.85); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); padding: 25px; position: relative;
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+            pointer-events: auto; transition: 0.3s;
+            cursor: pointer;
+        }
+        .cyber-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; 
+            background: var(--cyan); box-shadow: 0 0 15px var(--cyan);
+        }
+        .cyber-card:hover { border: 1px solid var(--orange); background: rgba(20, 30, 40, 0.95); transform: translateY(-5px); }
+        .cyber-card:hover::before { background: var(--orange); box-shadow: 0 0 15px var(--orange); }
+
+        .cyber-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; margin-bottom: 10px; color: #fff; }
+        .cyber-card p { color: #aaa; line-height: 1.4; font-size: 0.9rem; }
+        
+        .metric { font-family: 'Orbitron', sans-serif; font-size: 3.5rem; font-weight: 900; color: var(--orange); margin-bottom: 5px; }
+        
+        .status {
+            position: absolute; top: 15px; right: 15px; font-size: 0.65rem; font-weight: bold; 
+            letter-spacing: 2px; padding: 3px 8px; background: rgba(0, 255, 136, 0.1);
+            color: #00ff88; border: 1px solid #00ff88;
+        }
+        .status.uat { color: #ffcc00; border-color: #ffcc00; background: rgba(255, 204, 0, 0.1); }
+        .status.wip { color: #00f0ff; border-color: #00f0ff; background: rgba(0, 240, 255, 0.1); }
+
+        .scroll-hint { margin-top: 40px; font-size: 1.1rem; letter-spacing: 4px; color: var(--cyan); animation: blink 1.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <header>
+        <img src="HB logo.png" alt="Hector Beverages Logo">
+        <div class="header-title">HECTOR_CORE.V2</div>
+    </header>
+
+    <div id="viewport">
+        <div id="camera-rig">
+            <div id="helix-container">
+                
+                <div id="center-pole"></div>
+
+                <!-- Panel 0: Intro -->
+                <section class="panel">
+                    <h1 class="hero-title">DATA <span>NEXUS</span></h1>
+                    <p style="font-size: 1.2rem; color: #888; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+                        > INITIALIZING HECTOR BEVERAGES NEURAL NET...<br>
+                        > 27 INITIATIVES MAPPED. DESCEND TO ACCESS.
+                    </p>
+                    <div class="scroll-hint">⟱ SCROLL TO DESCEND ⟱</div>
+                </section>
+
+                <!-- Panel 1: Metrics -->
+                <section class="panel">
+                    <h2 class="section-title">SYSTEM_LOAD // METRICS</h2>
+                    <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="cyber-card">
+                            <div class="metric">27</div><h3>Total Initiatives</h3>
+                            <p>Full spectrum of data projects mapped.</p>
+                        </div>
+                        <div class="cyber-card">
+                            <div class="metric" style="color: #00ff88">14</div><h3>Live Deployments</h3>
+                            <p>Actively executing in production.</p>
+                        </div>
+                        <div class="cyber-card">
+                            <div class="metric" style="color: #00f0ff">8</div><h3>In Progress (WIP)</h3>
+                            <p>Currently in active development stages.</p>
+                        </div>
+                        <div class="cyber-card">
+                            <div class="metric" style="color: #ffcc00">5</div><h3>Testing (UAT)</h3>
+                            <p>Undergoing User Acceptance Testing.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 2: BI Dashboards Pt. 1 -->
+                <section class="panel">
+                    <h2 class="section-title">VISUAL_LOGIC_NODES // PT.1</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Primary Sales Revenue</h3><p>Added FY23 Primary Sales Data. Weekly View MVP.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Consolidated Sales</h3><p>Combines Primary Sales, SS to DB, and DB to Retailer Sales.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Brand Dashboards</h3><p>Specific tracking for Swing, PB, and Sparkling labels.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>MRM Sales Dashboard</h3><p>Built MVP with Primary Data, adding Secondary Sales next.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 3: BI Dashboards Pt. 2 -->
+                <section class="panel">
+                    <h2 class="section-title">VISUAL_LOGIC_NODES // PT.2</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status uat">UAT</div>
+                            <h3>Quality CRC Dashboard</h3><p>Captures All India Customer Complaints metrics.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status uat">UAT</div>
+                            <h3>All Inventory Dashboard</h3><p>Opening/Closing stock, production actuals, and sales.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>FL-Wise Detailed View</h3><p>Tracks Manned DB, Unmanned DB, and Direct DB Sales.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 4: Analytics Pt. 1 -->
+                <section class="panel">
+                    <h2 class="section-title">PREDICTIVE_AI_CORE // PT.1</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status uat">UAT</div>
+                            <h3>Primary Sales Forecasting</h3><p>Demand forecast and Exogenous Variable Analysis.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Outlet Recommender</h3><p>Suggests categories to push based on historical affinity.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status uat">UAT</div>
+                            <h3>Warehouse Optimization</h3><p>Recommends locations based on Transport Cost matrices.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Granular Business Planning</h3><p>Splitting FY27-FY29 plans down to hyper-granular SKU levels.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 5: Analytics Pt. 2 -->
+                <section class="panel">
+                    <h2 class="section-title">PREDICTIVE_AI_CORE // PT.2</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>PG Outlets Clustering</h3><p>Unsupervised ML identifying Outlet Clusters in major cities.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Market Mix Modelling</h3><p>Historical decomposition of revenue drivers via Cloud Web App.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>Outlet Expansion</h3><p>Algorithmic recommendations for potential network expansion.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>Almonds Dashboard</h3><p>Data scraping pipeline complete; front-end visualization WIP.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 6: Automation Pt. 1 -->
+                <section class="panel">
+                    <h2 class="section-title">AUTONOMOUS_PROC // PT.1</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Email Segmentation</h3><p>Automated rules for DB to Retail, Secondary Sales, and FL Discipline.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Wekalp Email Auto</h3><p>Automated execution of FL Reports and SS to DB Reports.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Production SNOP Planning</h3><p>Automated planning by Plant * Destination * SKU Level.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status uat">UAT</div>
+                            <h3>FSD Optimization Tool</h3><p>Integrating OneTapp and IGSA vendor outputs for production.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 7: Automation Pt. 2 -->
+                <section class="panel">
+                    <h2 class="section-title">AUTONOMOUS_PROC // PT.2</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Daily Scheduler</h3><p>Extracts SharePoint plans to generate Daily Production schedules.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>Co-Pack Digitization</h3><p>IoT platform for Live KPI Tracking at RMJV Bhopal plant.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>Daily Prod Report Auto</h3><p>Automated compilation workflows for Daily Production files.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Targets & Achievements</h3><p>Automated tracking for AVP, RSM, ASM, SO and FL users.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Panel 8: Automation Pt. 3 -->
+                <section class="panel">
+                    <h2 class="section-title">AUTONOMOUS_PROC // PT.3</h2>
+                    <div class="grid">
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Excel Dashboard Auto</h3><p>Cloud-migrated CI/CD runner distributing Excel Dashboards.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status">LIVE</div>
+                            <h3>Wekalp Report Changes</h3><p>Automated background processing for Wekalp status workflows.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>Stock Automation Logic</h3><p>Validating stock keeping logic and background sync processes.</p>
+                        </div>
+                        <div class="cyber-card"><div class="status wip">WIP</div>
+                            <h3>Order Status Reporting</h3><p>Logistics Order tracking. Rigorous data validation before launch.</p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Invisible div that makes the browser scrollable -->
+    <div id="scroll-proxy"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const panels = document.querySelectorAll('.panel');
+            const helix = document.getElementById('helix-container');
+            const proxy = document.getElementById('scroll-proxy');
+            
+            // --- 3D HELIX CONFIGURATION ---
+            const angleStep = 60; 
+            const radius = window.innerWidth > 768 ? 600 : 350; 
+            const heightStep = 220; 
+            
+            // Set proxy height to enable native scrollbar
+            const totalScrollHeight = panels.length * 1000; // Large number to ensure plenty of scroll room
+            proxy.style.height = `${totalScrollHeight}px`;
+
+            // Draw holographic rings
+            for(let r = -1; r <= panels.length; r++) {
+                let ring = document.createElement('div');
+                ring.className = 'pole-ring';
+                ring.style.width = `${radius * 2}px`;
+                ring.style.height = `${radius * 2}px`;
+                ring.style.transform = `translate(-50%, -50%) translateY(${r * heightStep}px) rotateX(90deg)`;
+                helix.appendChild(ring);
+            }
+
+            // Size the panels
+            panels.forEach((panel) => {
+                panel.style.width = 'min(85vw, 1000px)';
+            });
+
+            // Smooth Scroll Variables
+            let currentScroll = 0;
+            let targetScroll = 0;
+
+            // --- CRITICAL FIX: FORCE SCROLL CATCHING ---
+            // Because 3D layers can block native scroll, we manually catch mouse wheels and touch drags
+            const viewport = document.getElementById('viewport');
+            
+            viewport.addEventListener('wheel', (e) => {
+                window.scrollBy(0, e.deltaY);
+            }, { passive: true });
+
+            let touchStartY = 0;
+            viewport.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            viewport.addEventListener('touchmove', (e) => {
+                let touchY = e.touches[0].clientY;
+                let deltaY = touchStartY - touchY;
+                window.scrollBy(0, deltaY);
+                touchStartY = touchY;
+            }, { passive: true });
+
+            // Standard scroll listener
+            window.addEventListener('scroll', () => {
+                targetScroll = window.scrollY;
+            });
+
+            // Animation Loop
+            function render() {
+                // Smooth interpolation for butter-like rotation
+                currentScroll += (targetScroll - currentScroll) * 0.08;
+
+                // Calculate progress from 0 to 1 based on proxy height
+                const maxScroll = totalScrollHeight - window.innerHeight;
+                const progress = maxScroll > 0 ? currentScroll / maxScroll : 0;
+                
+                // Map progress to exact camera targets
+                const currentY = progress * ((panels.length - 1) * heightStep);
+                const currentAngle = progress * ((panels.length - 1) * angleStep);
+
+                // Move container to counter-act panel positions
+                helix.style.transform = `
+                    translateZ(${-radius}px) 
+                    translateY(${-currentY}px) 
+                    rotateY(${currentAngle}deg)
+                `;
+
+                // Update individual panels
+                const currentFloatIndex = progress * (panels.length - 1);
+                
+                panels.forEach((panel, i) => {
+                    let distance = Math.abs(i - currentFloatIndex);
+                    
+                    // Fade out and blur panels that are rotating away
+                    let opacity = Math.max(1 - (distance * 0.3), 0.05); 
+                    panel.style.opacity = opacity;
+                    panel.style.filter = `blur(${distance * 2.5}px)`;
+                    
+                    // Slightly scale up the panel you are looking directly at
+                    let scale = 1;
+                    if (distance < 1) {
+                        scale = 1 + (1 - distance) * 0.05;
+                    }
+
+                    // Apply the 3D positioning
+                    panel.style.transform = `
+                        translate(-50%, -50%) 
+                        rotateY(${i * -angleStep}deg) 
+                        translateZ(${radius}px) 
+                        translateY(${i * heightStep}px)
+                        scale(${scale})
+                    `;
+                    
+                    // Turn off mouse events for panels facing away
+                    panel.style.pointerEvents = distance < 0.8 ? 'auto' : 'none';
+                });
+
+                requestAnimationFrame(render);
+            }
+            
+            // Start engine
+            render();
+        });
+    </script>
+</body>
+</html>
