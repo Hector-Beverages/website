@@ -5,15 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hector Analytics | 3D Spiral Core</title>
     
+    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
         :root {
             --orange: #F37021;
-            --orange-glow: rgba(243, 112, 33, 0.5);
+            --orange-glow: rgba(243, 112, 33, 0.6);
             --cyan: #00f0ff;
+            --cyan-glow: rgba(0, 240, 255, 0.6);
             --magenta: #ff003c;
-            --dark: #050505;
+            --dark: #030405;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,8 +26,8 @@
             color: #fff;
             font-family: 'Share Tech Mono', monospace;
             overflow-x: hidden;
+            scroll-behavior: smooth;
             -ms-overflow-style: none; scrollbar-width: none;
-            /* Ensure the body actually has height */
             height: 100%;
         }
         ::-webkit-scrollbar { display: none; }
@@ -33,9 +36,9 @@
         .scanlines {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: 
-                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
+                linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
             pointer-events: none; z-index: 1;
         }
 
@@ -44,7 +47,7 @@
             position: fixed; top: 0; left: 0; width: 100%;
             padding: 25px 50px; z-index: 2000;
             display: flex; justify-content: space-between; align-items: center;
-            background: linear-gradient(to bottom, rgba(5,5,5,0.9), transparent);
+            background: linear-gradient(to bottom, rgba(3,4,5,0.95), transparent);
             pointer-events: none; 
         }
         header img { height: 35px; filter: drop-shadow(0 0 5px var(--cyan)); pointer-events: auto; }
@@ -65,8 +68,7 @@
 
         #viewport {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            perspective: 1200px; 
-            /* Set to auto so our custom JS scroll catcher works */
+            perspective: 1400px; 
             pointer-events: auto; 
             display: flex; justify-content: center; align-items: center;
             overflow: hidden; z-index: 10;
@@ -75,9 +77,24 @@
         #camera-rig {
             position: relative; width: 100%; height: 100%;
             transform-style: preserve-3d;
-            transform: rotateX(-10deg) translateY(50px);
+            transform: rotateX(-5deg) translateY(30px); 
             pointer-events: none; 
         }
+
+        /* Infinite 3D Floor Grid */
+        .cyber-grid-floor {
+            position: absolute; top: 50%; left: -50%; width: 200%; height: 200%;
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.2) 1px, transparent 1px);
+            background-size: 80px 80px;
+            transform: rotateX(85deg) translateZ(-600px);
+            pointer-events: none;
+            -webkit-mask-image: radial-gradient(circle at center, black, transparent 60%);
+            mask-image: radial-gradient(circle at center, black, transparent 60%);
+            animation: moveGrid 10s linear infinite;
+        }
+        @keyframes moveGrid { 0% { transform: rotateX(85deg) translateZ(-600px) translateY(0); } 100% { transform: rotateX(85deg) translateZ(-600px) translateY(80px); } }
 
         #helix-container {
             position: absolute; top: 50%; left: 50%; width: 0; height: 0;
@@ -86,7 +103,7 @@
 
         /* The glowing center pole you spiral around */
         #center-pole {
-            position: absolute; top: -5000px; bottom: -5000px; left: 50%; width: 6px;
+            position: absolute; top: -8000px; bottom: -8000px; left: 50%; width: 4px;
             transform: translateX(-50%);
             background: linear-gradient(to bottom, var(--cyan), var(--orange), var(--magenta), var(--cyan));
             background-size: 100% 200%;
@@ -95,69 +112,92 @@
         }
         @keyframes pulsePole { 0% { background-position: 0 0; } 100% { background-position: 0 200%; } }
 
-        /* Holographic rings mapping the cylinder */
         .pole-ring {
             position: absolute; top: 50%; left: 50%;
-            border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 50%;
+            border: 2px dashed rgba(0, 240, 255, 0.15); border-radius: 50%;
             pointer-events: none;
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.1) inset, 0 0 30px rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.1) inset, 0 0 40px rgba(0, 240, 255, 0.1);
         }
 
-        /* The individual content sections (The Stairs) */
         .panel {
             position: absolute; top: 50%; left: 50%; transform-style: preserve-3d;
             text-align: center; pointer-events: none; 
-            transition: opacity 0.1s linear, filter 0.1s linear;
+            transition: opacity 0.1s linear, filter 0.1s linear, visibility 0.1s;
         }
 
         /* -------------------------------------------
            INTERNAL PANEL STYLES (Cyber Cards) 
         ------------------------------------------- */
         h1.hero-title {
-            font-family: 'Orbitron', sans-serif; font-size: clamp(3rem, 8vw, 6rem);
-            font-weight: 900; color: transparent; -webkit-text-stroke: 1px var(--cyan);
-            text-shadow: 0 0 20px rgba(0,240,255,0.3); margin-bottom: 20px;
+            font-family: 'Orbitron', sans-serif; font-size: clamp(3.5rem, 9vw, 7rem);
+            font-weight: 900; color: transparent; -webkit-text-stroke: 2px var(--cyan);
+            text-shadow: 0 0 30px rgba(0,240,255,0.4); margin-bottom: 20px; letter-spacing: -2px;
         }
-        h1.hero-title span { color: #fff; -webkit-text-stroke: 0; text-shadow: 0 0 20px var(--orange-glow); }
+        h1.hero-title span { color: #fff; -webkit-text-stroke: 0; text-shadow: 0 0 30px var(--orange-glow); }
         
         .section-title {
-            font-family: 'Orbitron', sans-serif; font-size: 2.2rem; color: #fff; margin-bottom: 30px;
-            text-shadow: 2px 2px 0px var(--orange), -2px -2px 0px var(--cyan);
+            font-family: 'Orbitron', sans-serif; font-size: 2rem; color: #fff; margin-bottom: 40px;
+            text-shadow: 2px 2px 0px var(--orange), -2px -2px 0px var(--cyan); letter-spacing: 2px;
         }
 
         .grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 20px; width: 100%; text-align: left;
+            gap: 25px; width: 100%; text-align: center;
         }
 
+        /* HUD Card Styling */
         .cyber-card {
-            background: rgba(10, 15, 20, 0.85); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 25px; position: relative;
-            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
-            pointer-events: auto; transition: 0.3s;
+            background: rgba(10, 15, 20, 0.7); backdrop-filter: blur(20px);
+            border: 1px solid rgba(0,240,255,0.15); padding: 35px 25px; position: relative;
+            clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+            pointer-events: auto; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 180px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
+        
+        /* HUD Decorative Elements */
         .cyber-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; 
-            background: var(--cyan); box-shadow: 0 0 15px var(--cyan);
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; 
+            background: var(--cyan); box-shadow: 0 0 15px var(--cyan); transition: 0.3s;
         }
-        .cyber-card:hover { border: 1px solid var(--orange); background: rgba(20, 30, 40, 0.95); transform: translateY(-5px); }
-        .cyber-card:hover::before { background: var(--orange); box-shadow: 0 0 15px var(--orange); }
-
-        .cyber-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; margin-bottom: 10px; color: #fff; }
-        .cyber-card p { color: #aaa; line-height: 1.4; font-size: 0.9rem; }
-        
-        .metric { font-family: 'Orbitron', sans-serif; font-size: 3.5rem; font-weight: 900; color: var(--orange); margin-bottom: 5px; }
-        
-        .status {
-            position: absolute; top: 15px; right: 15px; font-size: 0.65rem; font-weight: bold; 
-            letter-spacing: 2px; padding: 3px 8px; background: rgba(0, 255, 136, 0.1);
-            color: #00ff88; border: 1px solid #00ff88;
+        .cyber-card::after { /* Target crosshair top right */
+            content: '+'; position: absolute; top: 10px; right: 15px;
+            color: rgba(255,255,255,0.2); font-size: 1.2rem;
         }
-        .status.uat { color: #ffcc00; border-color: #ffcc00; background: rgba(255, 204, 0, 0.1); }
-        .status.wip { color: #00f0ff; border-color: #00f0ff; background: rgba(0, 240, 255, 0.1); }
+        .node-id {
+            position: absolute; top: 10px; left: 15px; font-size: 0.65rem; color: rgba(255,255,255,0.4);
+            letter-spacing: 2px;
+        }
+        .deco-bar {
+            width: 30px; height: 2px; background: var(--cyan); margin-top: 15px;
+            transition: 0.4s; box-shadow: 0 0 10px var(--cyan);
+        }
 
-        .scroll-hint { margin-top: 40px; font-size: 1.1rem; letter-spacing: 4px; color: var(--cyan); animation: blink 1.5s infinite; }
+        .cyber-card:hover { 
+            border: 1px solid var(--orange); background: rgba(20, 25, 30, 0.95); 
+            transform: translateY(-10px) scale(1.05); 
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8), inset 0 0 30px rgba(243,112,33,0.1);
+        }
+        .cyber-card:hover::before { background: var(--orange); box-shadow: 0 0 20px var(--orange); }
+        .cyber-card:hover .deco-bar { width: 80px; background: var(--orange); box-shadow: 0 0 10px var(--orange); }
+        .cyber-card:hover .cyber-icon { color: #fff; text-shadow: 0 0 20px var(--orange); transform: scale(1.1); }
+
+        /* Icon & Typography */
+        .cyber-icon {
+            font-size: 2.8rem; color: var(--cyan); margin-bottom: 20px;
+            filter: drop-shadow(0 0 10px var(--cyan-glow)); transition: 0.3s;
+        }
+
+        .cyber-card h3 { 
+            font-family: 'Orbitron', sans-serif; 
+            font-size: 1.3rem; margin: 0; color: #fff; letter-spacing: 1px;
+        }
+        
+        .metric { font-family: 'Orbitron', sans-serif; font-size: 4.5rem; font-weight: 900; color: var(--orange); margin-bottom: 5px; text-shadow: 0 0 20px var(--orange-glow);}
+
+        .scroll-hint { margin-top: 50px; font-size: 1.2rem; letter-spacing: 6px; color: var(--cyan); animation: blink 1.5s infinite; text-shadow: 0 0 10px var(--cyan); }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
     </style>
 </head>
@@ -172,6 +212,10 @@
 
     <div id="viewport">
         <div id="camera-rig">
+            
+            <!-- Infinite 3D Grid Floor -->
+            <div class="cyber-grid-floor"></div>
+
             <div id="helix-container">
                 
                 <div id="center-pole"></div>
@@ -179,11 +223,7 @@
                 <!-- Panel 0: Intro -->
                 <section class="panel">
                     <h1 class="hero-title">DATA <span>NEXUS</span></h1>
-                    <p style="font-size: 1.2rem; color: #888; max-width: 600px; margin: 0 auto; line-height: 1.6;">
-                        > INITIALIZING HECTOR BEVERAGES NEURAL NET...<br>
-                        > 27 INITIATIVES MAPPED. DESCEND TO ACCESS.
-                    </p>
-                    <div class="scroll-hint">⟱ SCROLL TO DESCEND ⟱</div>
+                    <div class="scroll-hint">⟱ INITIATE DESCENT ⟱</div>
                 </section>
 
                 <!-- Panel 1: Metrics -->
@@ -191,20 +231,24 @@
                     <h2 class="section-title">SYSTEM_LOAD // METRICS</h2>
                     <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
                         <div class="cyber-card">
+                            <div class="node-id">[SYS.00]</div>
                             <div class="metric">27</div><h3>Total Initiatives</h3>
-                            <p>Full spectrum of data projects mapped.</p>
+                            <div class="deco-bar"></div>
                         </div>
                         <div class="cyber-card">
-                            <div class="metric" style="color: #00ff88">14</div><h3>Live Deployments</h3>
-                            <p>Actively executing in production.</p>
+                            <div class="node-id">[SYS.01]</div>
+                            <div class="metric" style="color: #00ff88; text-shadow: 0 0 20px rgba(0,255,136,0.5);">14</div><h3>Live Deployments</h3>
+                            <div class="deco-bar" style="background: #00ff88;"></div>
                         </div>
                         <div class="cyber-card">
-                            <div class="metric" style="color: #00f0ff">8</div><h3>In Progress (WIP)</h3>
-                            <p>Currently in active development stages.</p>
+                            <div class="node-id">[SYS.02]</div>
+                            <div class="metric" style="color: #00f0ff; text-shadow: 0 0 20px rgba(0,240,255,0.5);">8</div><h3>In Progress (WIP)</h3>
+                            <div class="deco-bar" style="background: #00f0ff;"></div>
                         </div>
                         <div class="cyber-card">
-                            <div class="metric" style="color: #ffcc00">5</div><h3>Testing (UAT)</h3>
-                            <p>Undergoing User Acceptance Testing.</p>
+                            <div class="node-id">[SYS.03]</div>
+                            <div class="metric" style="color: #ffcc00; text-shadow: 0 0 20px rgba(255,204,0,0.5);">5</div><h3>Testing (UAT)</h3>
+                            <div class="deco-bar" style="background: #ffcc00;"></div>
                         </div>
                     </div>
                 </section>
@@ -213,18 +257,10 @@
                 <section class="panel">
                     <h2 class="section-title">VISUAL_LOGIC_NODES // PT.1</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Primary Sales Revenue</h3><p>Added FY23 Primary Sales Data. Weekly View MVP.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Consolidated Sales</h3><p>Combines Primary Sales, SS to DB, and DB to Retailer Sales.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Brand Dashboards</h3><p>Specific tracking for Swing, PB, and Sparkling labels.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>MRM Sales Dashboard</h3><p>Built MVP with Primary Data, adding Secondary Sales next.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[BI.01]</div><i class="fas fa-chart-line cyber-icon"></i><h3>Primary Sales Revenue</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[BI.02]</div><i class="fas fa-chart-area cyber-icon"></i><h3>Consolidated Sales</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[BI.03]</div><i class="fas fa-chart-bar cyber-icon"></i><h3>Brand Dashboards</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[BI.04]</div><i class="fas fa-project-diagram cyber-icon"></i><h3>MRM Sales Dashboard</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -232,15 +268,9 @@
                 <section class="panel">
                     <h2 class="section-title">VISUAL_LOGIC_NODES // PT.2</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status uat">UAT</div>
-                            <h3>Quality CRC Dashboard</h3><p>Captures All India Customer Complaints metrics.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status uat">UAT</div>
-                            <h3>All Inventory Dashboard</h3><p>Opening/Closing stock, production actuals, and sales.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>FL-Wise Detailed View</h3><p>Tracks Manned DB, Unmanned DB, and Direct DB Sales.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[BI.05]</div><i class="fas fa-check-circle cyber-icon"></i><h3>Quality CRC Dashboard</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[BI.06]</div><i class="fas fa-boxes cyber-icon"></i><h3>All Inventory Dashboard</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[BI.07]</div><i class="fas fa-map-marked-alt cyber-icon"></i><h3>FL-Wise Detailed View</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -248,18 +278,10 @@
                 <section class="panel">
                     <h2 class="section-title">PREDICTIVE_AI_CORE // PT.1</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status uat">UAT</div>
-                            <h3>Primary Sales Forecasting</h3><p>Demand forecast and Exogenous Variable Analysis.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Outlet Recommender</h3><p>Suggests categories to push based on historical affinity.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status uat">UAT</div>
-                            <h3>Warehouse Optimization</h3><p>Recommends locations based on Transport Cost matrices.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Granular Business Planning</h3><p>Splitting FY27-FY29 plans down to hyper-granular SKU levels.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[AI.01]</div><i class="fas fa-chart-line cyber-icon"></i><h3>Primary Sales Forecasting</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AI.02]</div><i class="fas fa-store cyber-icon"></i><h3>Outlet Recommender</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AI.03]</div><i class="fas fa-warehouse cyber-icon"></i><h3>Warehouse Optimization</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AI.04]</div><i class="fas fa-sitemap cyber-icon"></i><h3>Granular Business Planning</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -267,18 +289,10 @@
                 <section class="panel">
                     <h2 class="section-title">PREDICTIVE_AI_CORE // PT.2</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>PG Outlets Clustering</h3><p>Unsupervised ML identifying Outlet Clusters in major cities.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Market Mix Modelling</h3><p>Historical decomposition of revenue drivers via Cloud Web App.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>Outlet Expansion</h3><p>Algorithmic recommendations for potential network expansion.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>Almonds Dashboard</h3><p>Data scraping pipeline complete; front-end visualization WIP.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[AI.05]</div><i class="fas fa-users cyber-icon"></i><h3>PG Outlets Clustering</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AI.06]</div><i class="fas fa-layer-group cyber-icon"></i><h3>Market Mix Modelling</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AI.07]</div><i class="fas fa-expand-arrows-alt cyber-icon"></i><h3>Outlet Expansion</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AI.08]</div><i class="fas fa-seedling cyber-icon"></i><h3>Almonds Dashboard</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -286,18 +300,10 @@
                 <section class="panel">
                     <h2 class="section-title">AUTONOMOUS_PROC // PT.1</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Email Segmentation</h3><p>Automated rules for DB to Retail, Secondary Sales, and FL Discipline.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Wekalp Email Auto</h3><p>Automated execution of FL Reports and SS to DB Reports.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Production SNOP Planning</h3><p>Automated planning by Plant * Destination * SKU Level.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status uat">UAT</div>
-                            <h3>FSD Optimization Tool</h3><p>Integrating OneTapp and IGSA vendor outputs for production.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[AU.01]</div><i class="fas fa-envelope-open-text cyber-icon"></i><h3>Email Segmentation</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.02]</div><i class="fas fa-mail-bulk cyber-icon"></i><h3>Wekalp Email Auto</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.03]</div><i class="fas fa-industry cyber-icon"></i><h3>Production SNOP Planning</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.04]</div><i class="fas fa-cogs cyber-icon"></i><h3>FSD Optimization Tool</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -305,18 +311,10 @@
                 <section class="panel">
                     <h2 class="section-title">AUTONOMOUS_PROC // PT.2</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Daily Scheduler</h3><p>Extracts SharePoint plans to generate Daily Production schedules.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>Co-Pack Digitization</h3><p>IoT platform for Live KPI Tracking at RMJV Bhopal plant.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>Daily Prod Report Auto</h3><p>Automated compilation workflows for Daily Production files.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Targets & Achievements</h3><p>Automated tracking for AVP, RSM, ASM, SO and FL users.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[AU.05]</div><i class="fas fa-calendar-alt cyber-icon"></i><h3>Daily Scheduler</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.06]</div><i class="fas fa-microchip cyber-icon"></i><h3>Co-Pack Digitization</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.07]</div><i class="fas fa-file-invoice cyber-icon"></i><h3>Daily Prod Report Auto</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.08]</div><i class="fas fa-bullseye cyber-icon"></i><h3>Targets & Achievements</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -324,18 +322,10 @@
                 <section class="panel">
                     <h2 class="section-title">AUTONOMOUS_PROC // PT.3</h2>
                     <div class="grid">
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Excel Dashboard Auto</h3><p>Cloud-migrated CI/CD runner distributing Excel Dashboards.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status">LIVE</div>
-                            <h3>Wekalp Report Changes</h3><p>Automated background processing for Wekalp status workflows.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>Stock Automation Logic</h3><p>Validating stock keeping logic and background sync processes.</p>
-                        </div>
-                        <div class="cyber-card"><div class="status wip">WIP</div>
-                            <h3>Order Status Reporting</h3><p>Logistics Order tracking. Rigorous data validation before launch.</p>
-                        </div>
+                        <div class="cyber-card"><div class="node-id">[AU.09]</div><i class="fas fa-file-excel cyber-icon"></i><h3>Excel Dashboard Auto</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.10]</div><i class="fas fa-sync-alt cyber-icon"></i><h3>Wekalp Report Changes</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.11]</div><i class="fas fa-box-open cyber-icon"></i><h3>Stock Automation Logic</h3><div class="deco-bar"></div></div>
+                        <div class="cyber-card"><div class="node-id">[AU.12]</div><i class="fas fa-truck-loading cyber-icon"></i><h3>Order Status Reporting</h3><div class="deco-bar"></div></div>
                     </div>
                 </section>
 
@@ -343,7 +333,6 @@
         </div>
     </div>
 
-    <!-- Invisible div that makes the browser scrollable -->
     <div id="scroll-proxy"></div>
 
     <script>
@@ -353,15 +342,13 @@
             const proxy = document.getElementById('scroll-proxy');
             
             // --- 3D HELIX CONFIGURATION ---
-            const angleStep = 60; 
-            const radius = window.innerWidth > 768 ? 600 : 350; 
-            const heightStep = 220; 
+            const angleStep = 75; 
+            const radius = window.innerWidth > 768 ? 750 : 400; 
+            const heightStep = 440; 
             
-            // Set proxy height to enable native scrollbar
-            const totalScrollHeight = panels.length * 1000; // Large number to ensure plenty of scroll room
+            const totalScrollHeight = panels.length * 800; 
             proxy.style.height = `${totalScrollHeight}px`;
 
-            // Draw holographic rings
             for(let r = -1; r <= panels.length; r++) {
                 let ring = document.createElement('div');
                 ring.className = 'pole-ring';
@@ -371,17 +358,11 @@
                 helix.appendChild(ring);
             }
 
-            // Size the panels
-            panels.forEach((panel) => {
-                panel.style.width = 'min(85vw, 1000px)';
-            });
+            panels.forEach((panel) => { panel.style.width = 'min(85vw, 1100px)'; });
 
-            // Smooth Scroll Variables
             let currentScroll = 0;
             let targetScroll = 0;
 
-            // --- CRITICAL FIX: FORCE SCROLL CATCHING ---
-            // Because 3D layers can block native scroll, we manually catch mouse wheels and touch drags
             const viewport = document.getElementById('viewport');
             
             viewport.addEventListener('wheel', (e) => {
@@ -389,76 +370,51 @@
             }, { passive: true });
 
             let touchStartY = 0;
-            viewport.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-            }, { passive: true });
-
+            viewport.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
             viewport.addEventListener('touchmove', (e) => {
                 let touchY = e.touches[0].clientY;
-                let deltaY = touchStartY - touchY;
-                window.scrollBy(0, deltaY);
+                window.scrollBy(0, touchStartY - touchY);
                 touchStartY = touchY;
             }, { passive: true });
 
-            // Standard scroll listener
-            window.addEventListener('scroll', () => {
-                targetScroll = window.scrollY;
-            });
+            window.addEventListener('scroll', () => { targetScroll = window.scrollY; });
 
-            // Animation Loop
             function render() {
-                // Smooth interpolation for butter-like rotation
                 currentScroll += (targetScroll - currentScroll) * 0.08;
 
-                // Calculate progress from 0 to 1 based on proxy height
                 const maxScroll = totalScrollHeight - window.innerHeight;
                 const progress = maxScroll > 0 ? currentScroll / maxScroll : 0;
                 
-                // Map progress to exact camera targets
                 const currentY = progress * ((panels.length - 1) * heightStep);
                 const currentAngle = progress * ((panels.length - 1) * angleStep);
 
-                // Move container to counter-act panel positions
-                helix.style.transform = `
-                    translateZ(${-radius}px) 
-                    translateY(${-currentY}px) 
-                    rotateY(${currentAngle}deg)
-                `;
+                helix.style.transform = `translateZ(${-radius}px) translateY(${-currentY}px) rotateY(${currentAngle}deg)`;
 
-                // Update individual panels
                 const currentFloatIndex = progress * (panels.length - 1);
                 
                 panels.forEach((panel, i) => {
                     let distance = Math.abs(i - currentFloatIndex);
                     
-                    // Fade out and blur panels that are rotating away
-                    let opacity = Math.max(1 - (distance * 0.3), 0.05); 
-                    panel.style.opacity = opacity;
-                    panel.style.filter = `blur(${distance * 2.5}px)`;
-                    
-                    // Slightly scale up the panel you are looking directly at
-                    let scale = 1;
-                    if (distance < 1) {
-                        scale = 1 + (1 - distance) * 0.05;
+                    let opacity = 1 - (distance * 0.7); 
+                    if (opacity <= 0.02) {
+                        panel.style.opacity = 0; panel.style.visibility = 'hidden';
+                    } else {
+                        panel.style.opacity = opacity; panel.style.visibility = 'visible';
                     }
+                    
+                    panel.style.filter = `blur(${distance * 3}px)`;
+                    let scale = distance < 1 ? 1 + (1 - distance) * 0.05 : 1;
 
-                    // Apply the 3D positioning
                     panel.style.transform = `
-                        translate(-50%, -50%) 
-                        rotateY(${i * -angleStep}deg) 
-                        translateZ(${radius}px) 
-                        translateY(${i * heightStep}px)
-                        scale(${scale})
+                        translate(-50%, -50%) rotateY(${i * -angleStep}deg) 
+                        translateZ(${radius}px) translateY(${i * heightStep}px) scale(${scale})
                     `;
                     
-                    // Turn off mouse events for panels facing away
-                    panel.style.pointerEvents = distance < 0.8 ? 'auto' : 'none';
+                    panel.style.pointerEvents = distance < 0.5 ? 'auto' : 'none';
                 });
 
                 requestAnimationFrame(render);
             }
-            
-            // Start engine
             render();
         });
     </script>
