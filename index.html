@@ -115,7 +115,7 @@ header.nav.scrolled{background:rgba(6,18,13,.62);backdrop-filter:blur(15px) satu
 @media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
 .scrollcue{margin-top:62px;display:flex;align-items:center;gap:14px;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase}
 .scrollcue .bar{width:52px;height:1px;background:var(--line-2);position:relative;overflow:hidden}
-.scrollcue .bar::after{content:"absolute;inset:0;background:var(--gold);animation:sl 2.6s var(--e) infinite}
+.scrollcue .bar::after{content:"";position:absolute;inset:0;background:var(--gold);animation:sl 2.6s var(--e) infinite}
 @keyframes sl{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
 
 /* ---------- sections ---------- */
